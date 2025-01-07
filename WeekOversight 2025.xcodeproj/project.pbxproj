@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		9CC0E82C2D14D18E00B4A2EB /* CoreXLSX in Frameworks */ = {isa = PBXBuildFile; productRef = 9CC0E82B2D14D18E00B4A2EB /* CoreXLSX */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		9C0C49ED2D145BEC008566EA /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -52,6 +56,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9CC0E82C2D14D18E00B4A2EB /* CoreXLSX in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +117,7 @@
 			);
 			name = "WeekOversight 2025";
 			packageProductDependencies = (
+				9CC0E82B2D14D18E00B4A2EB /* CoreXLSX */,
 			);
 			productName = "WeekOversight 2025";
 			productReference = 9C0C49DB2D145BEB008566EA /* WeekOversight 2025.app */;
@@ -195,6 +201,9 @@
 			);
 			mainGroup = 9C0C49D22D145BEB008566EA;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9CC0E82A2D14D18E00B4A2EB /* XCRemoteSwiftPackageReference "CoreXLSX" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 9C0C49DC2D145BEB008566EA /* Products */;
 			projectDirPath = "";
@@ -549,6 +558,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		9CC0E82A2D14D18E00B4A2EB /* XCRemoteSwiftPackageReference "CoreXLSX" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/CoreOffice/CoreXLSX.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.14.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9CC0E82B2D14D18E00B4A2EB /* CoreXLSX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9CC0E82A2D14D18E00B4A2EB /* XCRemoteSwiftPackageReference "CoreXLSX" */;
+			productName = CoreXLSX;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 9C0C49D32D145BEB008566EA /* Project object */;
 }
