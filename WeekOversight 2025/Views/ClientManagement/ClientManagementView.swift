@@ -3,6 +3,7 @@ import SwiftUI
 struct ClientManagementView: View {
     @EnvironmentObject private var clientManager: ClientManager
     @EnvironmentObject private var navigationManager: NavigationManager
+    @State private var isLoading = false
     
     var body: some View {
         VStack(spacing: 0) {
@@ -15,7 +16,9 @@ struct ClientManagementView: View {
                 Spacer()
                 
                 Button {
-                    navigationManager.showSheet(.addClient)
+                    withAnimation(AppAnimation.standard) {
+                        navigationManager.showSheet(.addClient)
+                    }
                 } label: {
                     Label("Add Client", systemImage: "plus")
                 }
@@ -23,11 +26,16 @@ struct ClientManagementView: View {
             }
             .padding()
             
-            if clientManager.clientGroups.isEmpty {
+            if isLoading {
+                ProgressView()
+                    .frame(maxHeight: .infinity)
+                    .transition(AppAnimation.fadeTransition)
+            } else if clientManager.clientGroups.isEmpty {
                 EmptyStateView(
                     icon: "folder",
                     message: "No clients yet"
                 )
+                .transition(AppAnimation.fadeTransition)
             } else {
                 ScrollView {
                     LazyVGrid(
@@ -35,19 +43,34 @@ struct ClientManagementView: View {
                         spacing: 20
                     ) {
                         ForEach(clientManager.clientGroups) { group in
-                            Button {
-                                navigationManager.navigate(to: .clientGroupDetail(group))
-                            } label: {
-                                ClientFolderView(group: group)
-                            }
-                            .buttonStyle(.plain)
+                            ClientFolderView(group: group)
+                                .transition(AppAnimation.transition)
                         }
                     }
                     .padding()
                 }
             }
         }
-        .animation(.spring(), value: clientManager.clientGroups)
+        .animation(AppAnimation.standard, value: clientManager.clientGroups)
+        .task {
+            await loadClients()
+        }
+    }
+    
+    private func loadClients() async {
+        withAnimation(AppAnimation.standard) {
+            isLoading = true
+        }
+        
+        do {
+            try await clientManager.loadClientGroups()
+        } catch {
+            // Error handling
+        }
+        
+        withAnimation(AppAnimation.standard) {
+            isLoading = false
+        }
     }
 }
 

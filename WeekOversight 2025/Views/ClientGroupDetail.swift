@@ -58,9 +58,7 @@ struct ClientGroupDetail_Previews: PreviewProvider {
             )
             
             return ClientGroupDetail(group: ClientGroup(name: "Jumbo"))
-                .environmentObject(clientManager)
-                .environmentObject(navigationManager)
-                .environmentObject(errorHandler)
+                .withPreviewEnvironment()
         }
     }
 }
@@ -79,8 +77,6 @@ struct ClientGroupDetail_Previews: PreviewProvider {
         )
         
         return ClientGroupDetail(group: ClientGroup(name: "Jumbo"))
-            .environmentObject(clientManager)
-            .environmentObject(navigationManager)
-            .environmentObject(errorHandler)
+            .withPreviewEnvironment()
     }
 } 

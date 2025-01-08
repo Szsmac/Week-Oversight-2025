@@ -22,37 +22,26 @@ struct WelcomeView: View {
                     .font(.headline)
                 
                 HStack(spacing: 20) {
-                    Button {
-                        navigationManager.navigate(to: .clientManagement)
-                    } label: {
-                        QuickActionButton(
-                            title: "Client Management",
-                            systemImage: "person.2"
-                        )
-                    }
-                    .buttonStyle(.hessing)
+                    QuickActionButton(
+                        title: "Client Management",
+                        systemImage: "person.2",
+                        action: { navigationManager.navigate(to: .clientManagement) }
+                    )
                     
-                    Button {
-                        navigationManager.showSheet(.createOversight)
-                    } label: {
-                        QuickActionButton(
-                            title: "Create Oversight",
-                            systemImage: "doc.badge.plus"
-                        )
-                    }
-                    .buttonStyle(.hessing)
+                    QuickActionButton(
+                        title: "Import Excel",
+                        systemImage: "doc.badge.plus",
+                        action: { navigationManager.showSheet(.importExcel) }
+                    )
                     
-                    Button {
-                        navigationManager.showSheet(.importExcel)
-                    } label: {
-                        QuickActionButton(
-                            title: "Import Excel",
-                            systemImage: "doc.badge.plus"
-                        )
-                    }
-                    .buttonStyle(.hessing)
+                    QuickActionButton(
+                        title: "New Week",
+                        systemImage: "calendar.badge.plus",
+                        action: { navigationManager.showSheet(.createOversight) }
+                    )
                 }
             }
+            .padding()
             
             // Recent Items
             VStack(alignment: .leading, spacing: 20) {
@@ -86,15 +75,23 @@ struct WelcomeView: View {
 struct QuickActionButton: View {
     let title: String
     let systemImage: String
+    let action: () -> Void
     
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.largeTitle)
-            Text(title)
-                .font(.headline)
+        Button(action: action) {
+            VStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.title)
+                Text(title)
+                    .font(.callout)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
-        .frame(width: 150, height: 120)
+        .buttonStyle(.plain)
+        .transition(.scale.combined(with: .opacity))
     }
 }
 

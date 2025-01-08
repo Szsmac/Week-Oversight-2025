@@ -14,76 +14,99 @@ struct NavigationContainer<Content: View>: View {
     }
     
     var body: some View {
-        NavigationStack(path: $navigationManager.path) {
-            content
-                .navigationDestination(for: NavigationRoute.self) { route in
-                    Group {
-                        switch route {
-                        case .welcome:
-                            WelcomeView()
-                        case .clientManagement:
-                            ClientManagementView()
-                                .navigationTitle("Client Management")
-                        case .clientGroupDetail(let group):
-                            ClientGroupDetailView(group: group)
-                                .navigationTitle(group.name)
-                        case .weekOversight(let oversight):
-                            WeekOversightView(oversight: oversight)
-                                .navigationTitle("Week \(oversight.weekNumber)")
-                        case .dayOversight(let oversight):
-                            DayOversightView(dayOversight: oversight)
-                                .navigationTitle(oversight.date.formatted(date: .abbreviated, time: .omitted))
-                        }
+        ZStack {
+            NavigationStack(path: $navigationManager.path) {
+                content
+                    .navigationDestination(for: NavigationRoute.self) { route in
+                        destinationView(for: route)
                     }
-                    .environmentObject(navigationManager)
-                    .environmentObject(clientManager)
-                    .environmentObject(errorHandler)
-                    .environmentObject(stateRestorationManager)
-                    .environmentObject(windowManager)
-                }
+            }
+            
+            if navigationManager.sheet != nil {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+            }
         }
         .sheet(item: $navigationManager.sheet) { type in
-            Group {
-                switch type {
-                case .addClient:
-                    AddClientSheet()
-                case .createOversight:
-                    CreateOversightSheet { newOversight in
-                        Task {
-                            try? await clientManager.updateWeekOversight(newOversight)
-                            navigationManager.dismissSheet()
-                        }
-                    }
-                case .createClientOversight(let group):
-                    CreateOversightSheet(group: group) { newOversight in
-                        Task {
-                            try? await clientManager.updateWeekOversight(newOversight)
-                            navigationManager.navigate(to: .weekOversight(newOversight))
-                            navigationManager.dismissSheet()
-                        }
-                    }
-                case .deleteClientGroup(let group):
-                    DeleteConfirmationSheet(
-                        title: "Delete Client Group",
-                        message: "Are you sure you want to delete this client group? This action cannot be undone.",
-                        onConfirm: {
-                            Task {
-                                try? await clientManager.deleteClientGroup(group)
-                                navigationManager.goBack()
-                                navigationManager.dismissSheet()
-                            }
-                        }
-                    )
-                case .importExcel:
-                    ExcelImporterView()
-                }
+            NavigationStack {
+                SheetContent(type: type)
             }
-            .environmentObject(navigationManager)
-            .environmentObject(clientManager)
-            .environmentObject(errorHandler)
-            .environmentObject(stateRestorationManager)
-            .environmentObject(windowManager)
             .presentationDetents([.medium])
+            .presentationBackground(.ultraThinMaterial)
+        }
+    }
+    
+    @ViewBuilder
+    private func destinationView(for route: NavigationRoute) -> some View {
+        Group {
+            switch route {
+            case .welcome:
+                WelcomeView()
+            case .clientManagement:
+                ClientManagementView()
+                    .navigationTitle("Client Management")
+            case .clientGroupDetail(let group):
+                ClientGroupDetailView(group: group)
+                    .navigationTitle(group.name)
+            case .weekOversight(let oversight):
+                WeekOversightView(oversight: oversight)
+                    .navigationTitle("Week \(oversight.weekNumber)")
+            case .dayOversight(let oversight):
+                DayOversightView(dayOversight: oversight)
+                    .navigationTitle(oversight.date.formatted(date: .abbreviated, time: .omitted))
+            }
+        }
+        .environmentObject(navigationManager)
+        .environmentObject(clientManager)
+        .environmentObject(errorHandler)
+        .environmentObject(stateRestorationManager)
+        .environmentObject(windowManager)
+    }
+}
+
+private struct SheetContent: View {
+    @EnvironmentObject private var navigationManager: NavigationManager
+    @EnvironmentObject private var clientManager: ClientManager
+    @EnvironmentObject private var errorHandler: ErrorHandler
+    
+    let type: SheetType
+    
+    var body: some View {
+        Group {
+            switch type {
+            case .addClient:
+                AddClientSheet()
+            case .createOversight:
+                CreateOversightSheet { newOversight in
+                    Task {
+                        try? await clientManager.updateWeekOversight(newOversight)
+                        navigationManager.dismissSheet()
+                    }
+                }
+            case .createClientOversight(let group):
+                CreateOversightSheet(group: group) { newOversight in
+                    Task {
+                        try? await clientManager.updateWeekOversight(newOversight)
+                        navigationManager.navigate(to: .weekOversight(newOversight))
+                        navigationManager.dismissSheet()
+                    }
+                }
+            case .deleteClientGroup(let group):
+                DeleteConfirmationSheet(
+                    title: "Delete Client Group",
+                    message: "Are you sure you want to delete this client group? This action cannot be undone.",
+                    onConfirm: {
+                        Task {
+                            try? await clientManager.deleteClientGroup(group)
+                            navigationManager.goBack()
+                            navigationManager.dismissSheet()
+                        }
+                    }
+                )
+            case .importExcel:
+                ExcelImporterView()
+            }
         }
     }
 }

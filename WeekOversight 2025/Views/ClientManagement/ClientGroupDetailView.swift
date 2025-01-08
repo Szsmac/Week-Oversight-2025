@@ -2,98 +2,80 @@ import SwiftUI
 
 struct ClientGroupDetailView: View {
     let group: ClientGroup
-    @EnvironmentObject private var navigationManager: NavigationManager
     @EnvironmentObject private var clientManager: ClientManager
-    @EnvironmentObject private var errorHandler: ErrorHandler
+    @EnvironmentObject private var navigationManager: NavigationManager
+    @State private var selectedOversight: WeekOversight?
+    @State private var isLoading = false
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(group.name)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text("\(group.weekOversights.count) oversights")
-                        .foregroundStyle(.secondary)
-                }
-                
-                Spacer()
-                
-                Button {
-                    navigationManager.showSheet(.createClientOversight(group))
-                } label: {
-                    Label("New Week", systemImage: "plus")
-                }
-                .buttonStyle(.hessing)
-            }
-            .padding()
-            
-            // Content
-            if group.weekOversights.isEmpty {
-                EmptyStateView(
-                    icon: "calendar",
-                    message: "No oversights yet"
-                )
+        Group {
+            if isLoading {
+                LoadingView(message: "Loading oversights...")
             } else {
-                ScrollView {
-                    LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 300, maximum: 400))],
-                        spacing: 20
-                    ) {
-                        ForEach(group.weekOversights.sorted(by: { $0.date > $1.date })) { oversight in
-                            Button {
-                                navigationManager.navigate(to: .weekOversight(oversight))
-                            } label: {
-                                WeekOversightCard(oversight: oversight)
-                            }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                Button(role: .destructive) {
-                                    Task {
-                                        await deleteOversight(oversight)
-                                    }
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
-                        }
-                    }
-                    .padding()
-                }
+                content
             }
         }
         .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button(action: { navigationManager.goBack() }) {
-                    Image(systemName: "chevron.left")
-                }
-            }
-            
-            ToolbarItem(placement: .primaryAction) {
-                Button(role: .destructive) {
-                    navigationManager.showSheet(.deleteClientGroup(group))
+            ToolbarItem {
+                Menu {
+                    Button("New Week Oversight") {
+                        withAnimation(AppAnimation.standard) {
+                            navigationManager.showSheet(.createClientOversight(group))
+                        }
+                    }
+                    
+                    Button("Import Excel") {
+                        withAnimation(AppAnimation.standard) {
+                            navigationManager.showSheet(.importExcel)
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    Button("Delete Group", role: .destructive) {
+                        withAnimation(AppAnimation.standard) {
+                            navigationManager.showSheet(.deleteClientGroup(group))
+                        }
+                    }
                 } label: {
-                    Label("Delete", systemImage: "trash")
+                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
-        .animation(.spring(), value: group.weekOversights)
+        .navigationTitle(group.name)
     }
     
-    private func deleteOversight(_ oversight: WeekOversight) async {
-        do {
-            var updatedGroup = group
-            updatedGroup.weekOversights.removeAll { $0.id == oversight.id }
-            try await clientManager.updateClientGroup(updatedGroup)
-        } catch {
-            errorHandler.handle(error)
+    private var content: some View {
+        List {
+            Section {
+                ForEach(group.weekOversights) { oversight in
+                    WeekOversightRow(oversight: oversight)
+                        .contentTransition(.symbolEffect(.automatic))
+                        .onTapGesture {
+                            withAnimation(AppAnimation.standard) {
+                                navigationManager.navigate(to: .weekOversight(oversight))
+                            }
+                        }
+                }
+            } header: {
+                SectionHeader(
+                    title: "Week Oversights",
+                    systemImage: "calendar",
+                    action: {
+                        withAnimation(AppAnimation.standard) {
+                            navigationManager.showSheet(.createClientOversight(group))
+                        }
+                    }
+                )
+            }
         }
+        .animation(AppAnimation.standard, value: group.weekOversights)
     }
 }
 
 #Preview {
-    ClientGroupDetailView(group: ClientGroup(name: "Test Group"))
-        .withPreviewEnvironment()
+    NavigationStack {
+        ClientGroupDetailView(group: ClientGroup(name: "Test Group"))
+            .withPreviewEnvironment()
+    }
 } 

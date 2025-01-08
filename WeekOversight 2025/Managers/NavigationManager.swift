@@ -47,38 +47,38 @@ enum NavigationRoute: Hashable, Equatable {
 @MainActor
 final class NavigationManager: ObservableObject {
     @Published var path = NavigationPath()
-    @Published var currentRoute: NavigationRoute?
     @Published var sheet: SheetType?
+    @Published var currentRoute: NavigationRoute?
     
     func navigate(to route: NavigationRoute) {
-        withAnimation(.spring()) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             currentRoute = route
             switch route {
             case .welcome:
                 path.removeLast(path.count)
-            case .clientManagement:
-                path.append(route)
-            case .clientGroupDetail, .weekOversight, .dayOversight:
+            case .clientManagement, .clientGroupDetail, .weekOversight, .dayOversight:
                 path.append(route)
             }
         }
     }
     
     func showSheet(_ type: SheetType) {
-        withAnimation(.spring()) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             sheet = type
         }
     }
     
     func dismissSheet() {
-        withAnimation(.spring()) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
             sheet = nil
         }
     }
     
     func goBack() {
-        if !path.isEmpty {
-            path.removeLast()
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            if !path.isEmpty {
+                path.removeLast()
+            }
         }
     }
 }
