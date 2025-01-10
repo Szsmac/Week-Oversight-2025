@@ -1,45 +1,56 @@
 import SwiftUI
+import AppKit
 
 struct DistributionCenterColumn: View {
-    let center: DistributionCenter
+    let center: String
     let trucks: [TruckData]
     
+    private var stats: DayStats {
+        DayStats(
+            boxes: trucks.reduce(0) { $0 + $1.boxes },
+            rollies: trucks.reduce(0) { $0 + $1.rollies }
+        )
+    }
+    
     var body: some View {
-        VStack(alignment: .leading) {
-            headerView
-            trucksListView
-            footerView
-        }
-        .padding()
-    }
-    
-    private var headerView: some View {
-        VStack(alignment: .leading) {
-            Text(center.name)
-                .font(.headline)
-            Text("\(trucks.count) Trucks")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-        }
-    }
-    
-    private var trucksListView: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 10) {
-                ForEach(trucks) { truck in
-                    TruckDataView(truckData: truck)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(center)
+                    .font(.headline)
+                
+                Spacer()
+                
+                Text("\(trucks.count) trucks")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Total Boxes:")
+                    Text("\(stats.boxes)")
+                        .fontWeight(.medium)
+                }
+                
+                HStack {
+                    Text("Total Rollies:")
+                    Text("\(stats.rollies)")
+                        .fontWeight(.medium)
                 }
             }
+            .font(.subheadline)
         }
+        .padding()
+        .background(Color(nsColor: NSColor.windowBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
-    
-    private var footerView: some View {
-        VStack(alignment: .leading) {
-            Text("Total Boxes: \(trucks.reduce(0) { $0 + $1.boxes })")
-            Text("Total Rollies: \(trucks.reduce(0) { $0 + $1.rollies })")
-            Text("Missing Boxes: \(trucks.reduce(0) { $0 + $1.missingBoxes })")
-        }
-        .font(.caption)
-        .foregroundColor(.secondary)
-    }
+}
+
+#Preview {
+    DistributionCenterColumn(
+        center: "DC1",
+        trucks: [.preview]
+    )
+    .padding()
+    .background(Color(nsColor: NSColor.controlBackgroundColor))
 } 

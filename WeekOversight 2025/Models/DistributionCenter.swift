@@ -6,8 +6,13 @@ struct DistributionCenter: Identifiable, Hashable {
     let trucks: [TruckData]
     
     var totalTrucks: Int { trucks.count }
-    var totalBoxes: Int { trucks.reduce(0) { $0 + $1.boxes } }
-    var totalRollies: Int { trucks.reduce(0) { $0 + $1.rollies } }
+    
+    var stats: DayStats {
+        DayStats(
+            boxes: trucks.reduce(0) { $0 + $1.boxes },
+            rollies: trucks.reduce(0) { $0 + $1.rollies }
+        )
+    }
     
     init(name: String, trucks: [TruckData]) {
         self.name = name

@@ -1,36 +1,25 @@
 import Foundation
+import CoreData
 
-class WeekOversightViewModel: ObservableObject {
-    @Published var currentWeek: WeekOversight
-    @Published var selectedDay: Date?
-    @Published var selectedTrucks: [TruckData]?
+@MainActor
+final class WeekOversightViewModel: ObservableObject {
+    @Published private(set) var weekOversight: WeekOversightEntity
+    @Published var isLoading = false
+    @Published var error: Error?
+    private let context: NSManagedObjectContext
     
-    init(weekOversight: WeekOversight? = nil) {
-        if let weekOversight = weekOversight {
-            self.currentWeek = weekOversight
-        } else {
-            // Initialize with default week oversight
-            self.currentWeek = WeekOversight(
-                id: UUID(),
-                weekNumber: Calendar.current.component(.weekOfYear, from: Date()),
-                clientGroupId: UUID(),
-                dayOversights: []
-            )
-        }
+    var weekNumber: Int {
+        Int(weekOversight.weekNumber)
     }
     
-    func trucksForDay(_ date: Date) -> [TruckData] {
-        currentWeek.dayOversights
-            .first { Calendar.current.isDate($0.date, inSameDayAs: date) }?
-            .trucks ?? []
+    init(context: NSManagedObjectContext, weekOversight: WeekOversightEntity) {
+        self.context = context
+        self.weekOversight = weekOversight
     }
-}
-
-struct Week {
-    let date: Date
-    // Add any other week-related properties you need
     
-    init(date: Date) {
-        self.date = date
+    func dayOversight(for date: Date) -> DayOversightEntity? {
+        weekOversight.dayOversights?
+            .compactMap { $0 as? DayOversightEntity }
+            .first { Calendar.current.isDate($0.date ?? Date(), inSameDayAs: date) }
     }
 } 

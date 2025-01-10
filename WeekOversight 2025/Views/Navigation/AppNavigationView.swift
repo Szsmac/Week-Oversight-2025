@@ -1,15 +1,23 @@
 import SwiftUI
 
 struct AppNavigationView: View {
+    @Environment(\.managedObjectContext) private var context
     @EnvironmentObject private var navigationManager: NavigationManager
     @EnvironmentObject private var windowManager: WindowManager
     
     var body: some View {
-        NavigationSplitView {
-            SidebarView()
-        } detail: {
-            NavigationContainer {
-                mainContent
+        NavigationContainer {
+            switch navigationManager.currentRoute {
+            case .clientGroupDetail(let group):
+                ClientGroupDetailView(clientGroup: group.toEntity(in: context) ?? ClientGroupEntity(context: context), context: context)
+            case .clientManagement:
+                ClientManagementView()
+            case .dayOversight(let dayOversight):
+                DayOversightView(dayOversight: dayOversight.toEntity(in: context) ?? DayOversightEntity(context: context), context: context)
+            case .weekOversight(let weekOversight):
+                WeekOversightView(weekOversight: weekOversight.toEntity(in: context) ?? WeekOversightEntity(context: context))
+            case .welcome, .none:
+                WelcomeView()
             }
         }
         .frame(
@@ -19,28 +27,9 @@ struct AppNavigationView: View {
             maxHeight: .infinity
         )
     }
-    
-    @ViewBuilder
-    private var mainContent: some View {
-        Group {
-            switch navigationManager.currentRoute {
-            case .welcome, .none:
-                WelcomeView()
-                    .transition(AppAnimation.fadeTransition)
-            case .clientManagement:
-                ClientManagementView()
-                    .transition(AppAnimation.transition)
-            case .clientGroupDetail(let group):
-                ClientGroupDetailView(group: group)
-                    .transition(AppAnimation.transition)
-            case .weekOversight(let oversight):
-                WeekOversightView(oversight: oversight)
-                    .transition(AppAnimation.transition)
-            case .dayOversight(let oversight):
-                DayOversightView(dayOversight: oversight)
-                    .transition(AppAnimation.transition)
-            }
-        }
-        .animation(AppAnimation.standard, value: navigationManager.currentRoute)
-    }
+}
+
+#Preview {
+    AppNavigationView()
+        .withPreviewEnvironment()
 } 

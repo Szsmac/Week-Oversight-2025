@@ -10,43 +10,42 @@ final class AppState: ObservableObject {
     let stateRestorationManager: StateRestorationManager
     let windowManager: WindowManager
     @Published var clientManager: ClientManager
+    private let migrationManager: DataMigrationManager
     
-    init() {
+    init(inMemory: Bool = false) {
         // First, initialize all properties
         let errorHandler = ErrorHandler()
         let navigationManager = NavigationManager()
         let stateRestorationManager = StateRestorationManager()
-        let windowManager = WindowManager(stateRestorationManager: stateRestorationManager)
-        let persistenceManager = PersistenceManager()
+        let windowManager = WindowManager()
         
-        // Then assign them to self
+        // Create persistence controller based on inMemory flag
+        let persistenceController = inMemory ? PersistenceController.preview : PersistenceController.shared
+        
+        // Then assign them
         self.errorHandler = errorHandler
         self.navigationManager = navigationManager
         self.stateRestorationManager = stateRestorationManager
         self.windowManager = windowManager
+        self.clientManager = ClientManager(context: persistenceController.container.viewContext)
+        self.migrationManager = DataMigrationManager(context: persistenceController.container.viewContext)
         
-        // Finally create the client manager after all other properties are initialized
-        let clientManager = ClientManager(
-            persistenceManager: persistenceManager,
-            stateRestorationManager: stateRestorationManager,
-            navigationManager: navigationManager,
-            errorHandler: errorHandler
-        )
-        self.clientManager = clientManager
-        
-        // Add observers for state changes
+        setupSubscriptions()
+    }
+    
+    private func setupSubscriptions() {
         clientManager.objectWillChange.sink { [weak self] _ in
             Task { @MainActor in
                 self?.objectWillChange.send()
             }
         }
         .store(in: &cancellables)
-        
-        navigationManager.objectWillChange.sink { [weak self] _ in
-            Task { @MainActor in
-                self?.objectWillChange.send()
-            }
-        }
-        .store(in: &cancellables)
+    }
+}
+
+// MARK: - Preview Support
+extension AppState {
+    static var preview: AppState {
+        AppState(inMemory: true)
     }
 } 

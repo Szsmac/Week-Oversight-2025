@@ -8,37 +8,66 @@ struct DayOversightEditor: View {
             TextField("Distribution Center", text: Binding(
                 get: { editedTruck.distributionCenter },
                 set: { newValue in
-                    var updated = editedTruck
-                    updated = TruckData(
+                    editedTruck = TruckData(
                         id: editedTruck.id,
                         distributionCenter: newValue,
-                        arrival: editedTruck.arrival,
                         boxes: editedTruck.boxes,
                         rollies: editedTruck.rollies,
-                        missingBoxes: editedTruck.missingBoxes
+                        arrivalTime: editedTruck.arrivalTime
                     )
-                    editedTruck = updated
                 }
             ))
             
             DatePicker("Arrival Time", selection: Binding(
-                get: { editedTruck.arrival },
+                get: { editedTruck.arrivalTime },
                 set: { newValue in
-                    var updated = editedTruck
-                    updated = TruckData(
+                    editedTruck = TruckData(
                         id: editedTruck.id,
                         distributionCenter: editedTruck.distributionCenter,
-                        arrival: newValue,
                         boxes: editedTruck.boxes,
                         rollies: editedTruck.rollies,
-                        missingBoxes: editedTruck.missingBoxes
+                        arrivalTime: newValue
                     )
-                    editedTruck = updated
                 }
             ), displayedComponents: .hourAndMinute)
             
-            // ... similar bindings for boxes, rollies, etc.
+            Stepper("Boxes: \(editedTruck.boxes)", value: Binding(
+                get: { editedTruck.boxes },
+                set: { newValue in
+                    editedTruck = TruckData(
+                        id: editedTruck.id,
+                        distributionCenter: editedTruck.distributionCenter,
+                        boxes: newValue,
+                        rollies: editedTruck.rollies,
+                        arrivalTime: editedTruck.arrivalTime
+                    )
+                }
+            ))
+            
+            Stepper("Rollies: \(editedTruck.rollies)", value: Binding(
+                get: { editedTruck.rollies },
+                set: { newValue in
+                    editedTruck = TruckData(
+                        id: editedTruck.id,
+                        distributionCenter: editedTruck.distributionCenter,
+                        boxes: editedTruck.boxes,
+                        rollies: newValue,
+                        arrivalTime: editedTruck.arrivalTime
+                    )
+                }
+            ))
         }
         .formStyle(.grouped)
     }
+}
+
+#Preview {
+    @Previewable @State var truck = TruckData(
+        distributionCenter: "Test Center",
+        boxes: 100,
+        rollies: 50,
+        arrivalTime: Date()
+    )
+    
+    return DayOversightEditor(editedTruck: $truck)
 } 

@@ -5,6 +5,7 @@ import SwiftUI
 final class StateRestorationManager: ObservableObject {
     private let defaults = UserDefaults.standard
     private let windowFramePrefix = "window_frame_"
+    private let userDefaults = UserDefaults.standard
     
     func windowFrame(for id: UUID) -> NSRect? {
         guard let frameData = defaults.data(forKey: windowFramePrefix + id.uuidString),
@@ -19,8 +20,6 @@ final class StateRestorationManager: ObservableObject {
         defaults.set(frameData, forKey: windowFramePrefix + id.uuidString)
     }
     
-    private let userDefaults = UserDefaults.standard
-    
     func saveState(clientManager: ClientManager, navigationManager: NavigationManager) async throws {
         // Save selected group ID
         if let selectedGroupId = clientManager.selectedClientGroup?.id {
@@ -30,8 +29,8 @@ final class StateRestorationManager: ObservableObject {
         }
         
         // Save navigation path
-        if let codableRepresentation = navigationManager.path.codable {
-            userDefaults.set(codableRepresentation, forKey: "navigationPath")
+        if let navigationData = try? JSONEncoder().encode(navigationManager.path) {
+            userDefaults.set(navigationData, forKey: "navigationPath")
         } else {
             userDefaults.removeObject(forKey: "navigationPath")
         }
@@ -47,8 +46,9 @@ final class StateRestorationManager: ObservableObject {
         }
         
         // Restore navigation path
-        if let codableRepresentation = userDefaults.object(forKey: "navigationPath") as? NavigationPath.CodableRepresentation {
-            navigationManager.path = NavigationPath(codableRepresentation)
+        if let navigationData = userDefaults.data(forKey: "navigationPath"),
+           let restoredPath = try? JSONDecoder().decode([NavigationRoute].self, from: navigationData) {
+            navigationManager.path = restoredPath
         }
     }
 } 

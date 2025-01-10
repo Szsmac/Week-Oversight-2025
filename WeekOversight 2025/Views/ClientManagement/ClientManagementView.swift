@@ -1,113 +1,53 @@
 import SwiftUI
 
 struct ClientManagementView: View {
-    @EnvironmentObject private var clientManager: ClientManager
+    @Environment(\.managedObjectContext) private var context
+    @StateObject private var viewModel: ClientGroupViewModel
     @EnvironmentObject private var navigationManager: NavigationManager
-    @State private var isLoading = false
+    
+    init() {
+        _viewModel = StateObject(wrappedValue: ClientGroupViewModel(context: PersistenceController.shared.container.viewContext))
+    }
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("Client Management")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                
-                Spacer()
-                
+        List {
+            ForEach(viewModel.groups) { group in
                 Button {
-                    withAnimation(AppAnimation.standard) {
-                        navigationManager.showSheet(.addClient)
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.3)) {
+                        navigationManager.navigate(to: .clientGroup(group))
                     }
                 } label: {
-                    Label("Add Client", systemImage: "plus")
+                    HStack {
+                        Text(group.name ?? "Unnamed Group")
+                        Spacer()
+                        Text("\(group.weekOversights?.count ?? 0) weeks")
+                            .foregroundStyle(.secondary)
+                    }
                 }
-                .buttonStyle(.hessing)
             }
-            .padding()
-            
-            if isLoading {
-                ProgressView()
-                    .frame(maxHeight: .infinity)
-                    .transition(AppAnimation.fadeTransition)
-            } else if clientManager.clientGroups.isEmpty {
-                EmptyStateView(
-                    icon: "folder",
-                    message: "No clients yet"
-                )
-                .transition(AppAnimation.fadeTransition)
-            } else {
-                ScrollView {
-                    LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 250, maximum: 300))],
-                        spacing: 20
-                    ) {
-                        ForEach(clientManager.clientGroups) { group in
-                            ClientFolderView(group: group)
-                                .transition(AppAnimation.transition)
+        }
+        .navigationTitle("Clients")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.3)) {
+                        if let group = viewModel.groups.first {
+                            navigationManager.showSheet(.createOversight(group))
+                        } else {
+                            navigationManager.showSheet(.createOversight(nil))
                         }
                     }
-                    .padding()
+                } label: {
+                    Image(systemName: "plus")
                 }
             }
         }
-        .animation(AppAnimation.standard, value: clientManager.clientGroups)
-        .task {
-            await loadClients()
-        }
-    }
-    
-    private func loadClients() async {
-        withAnimation(AppAnimation.standard) {
-            isLoading = true
-        }
-        
-        do {
-            try await clientManager.loadClientGroups()
-        } catch {
-            // Error handling
-        }
-        
-        withAnimation(AppAnimation.standard) {
-            isLoading = false
-        }
-    }
-}
-
-struct ClientFolderView: View {
-    let group: ClientGroup
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Image(systemName: "folder.fill")
-                    .font(.title)
-                    .foregroundStyle(.blue)
-                
-                Text(group.name)
-                    .font(.headline)
-                
-                Spacer()
-                
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(.secondary)
-            }
-            
-            Text("\(group.weekOversights.count) oversights")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .padding()
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
-        )
     }
 }
 
 #Preview {
-    ClientManagementView()
-        .withPreviewEnvironment()
+    NavigationStack {
+        ClientManagementView()
+    }
+    .withPreviewEnvironment()
 } 

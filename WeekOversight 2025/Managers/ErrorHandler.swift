@@ -1,18 +1,19 @@
+import Foundation
 import SwiftUI
 
 @MainActor
-final class ErrorHandler: ObservableObject {
-    @Published var currentError: Error?
-    @Published var showError = false
+class ErrorHandler: ObservableObject {
+    @Published var error: Error?
+    @Published var hasError = false
     
     func handle(_ error: Error) {
-        currentError = error
-        showError = true
+        self.error = error
+        self.hasError = true
     }
     
     func dismiss() {
-        currentError = nil
-        showError = false
+        self.error = nil
+        self.hasError = false
     }
 }
 
@@ -21,12 +22,12 @@ struct ErrorAlert: ViewModifier {
     
     func body(content: Content) -> some View {
         content
-            .alert("Error", isPresented: $errorHandler.showError) {
+            .alert("Error", isPresented: $errorHandler.hasError) {
                 Button("OK") {
                     errorHandler.dismiss()
                 }
             } message: {
-                if let error = errorHandler.currentError {
+                if let error = errorHandler.error {
                     Text(error.localizedDescription)
                 }
             }

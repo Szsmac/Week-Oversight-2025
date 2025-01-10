@@ -15,29 +15,36 @@ struct WeekOversight: Identifiable, Codable, Hashable {
     }
     
     var totalBoxes: Int {
-        dayOversights.reduce(0) { $0 + $1.trucks.reduce(0) { $0 + $1.boxes } }
+        dayOversights.reduce(0) { $0 + $1.stats.boxes }
     }
     
     var totalRollies: Int {
-        dayOversights.reduce(0) { $0 + $1.trucks.reduce(0) { $0 + $1.rollies } }
-    }
-    
-    mutating func addDayOversights(_ newDays: [DayOversight]) {
-        var updatedDays = newDays
-        for i in 0..<updatedDays.count {
-            var day = updatedDays[i]
-            day.clientGroupId = clientGroupId
-            day.weekOversightId = id
-            updatedDays[i] = day
-        }
-        dayOversights.append(contentsOf: updatedDays)
+        dayOversights.reduce(0) { $0 + $1.stats.rollies }
     }
     
     static func == (lhs: WeekOversight, rhs: WeekOversight) -> Bool {
-        lhs.id == rhs.id
+        lhs.id == rhs.id &&
+        lhs.weekNumber == rhs.weekNumber &&
+        lhs.clientGroupId == rhs.clientGroupId &&
+        lhs.dayOversights == rhs.dayOversights
     }
     
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+        hasher.combine(weekNumber)
+        hasher.combine(clientGroupId)
+        hasher.combine(dayOversights)
+    }
+}
+
+// MARK: - Preview Support
+extension WeekOversight {
+    static var preview: WeekOversight {
+        WeekOversight(
+            id: UUID(),
+            weekNumber: 1,
+            clientGroupId: UUID(),
+            dayOversights: [.preview]
+        )
     }
 } 

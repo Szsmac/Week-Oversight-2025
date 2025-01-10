@@ -1,15 +1,11 @@
 import Foundation
 
 struct DayOversight: Identifiable, Codable, Hashable {
-    var id: UUID
-    var date: Date
+    let id: UUID
+    let date: Date
     var trucks: [TruckData]
-    var clientGroupId: UUID
-    var weekOversightId: UUID
-    
-    var totalMissingBoxes: Int {
-        trucks.reduce(into: 0) { $0 += $1.missingBoxes }
-    }
+    let clientGroupId: UUID
+    let weekOversightId: UUID
     
     var groupedTrucks: [String: [TruckData]] {
         Dictionary(grouping: trucks) { $0.distributionCenter }
@@ -18,17 +14,8 @@ struct DayOversight: Identifiable, Codable, Hashable {
     var stats: DayStats {
         DayStats(
             boxes: trucks.reduce(0) { $0 + $1.boxes },
-            rollies: trucks.reduce(0) { $0 + $1.rollies },
-            missingBoxes: trucks.reduce(0) { $0 + $1.missingBoxes }
+            rollies: trucks.reduce(0) { $0 + $1.rollies }
         )
-    }
-    
-    var totalBoxes: Int {
-        trucks.reduce(0) { $0 + $1.boxes }
-    }
-    
-    var totalRollies: Int {
-        trucks.reduce(0) { $0 + $1.rollies }
     }
     
     func hash(into hasher: inout Hasher) {
@@ -45,5 +32,18 @@ struct DayOversight: Identifiable, Codable, Hashable {
         lhs.trucks.map { $0.id } == rhs.trucks.map { $0.id } &&
         lhs.clientGroupId == rhs.clientGroupId &&
         lhs.weekOversightId == rhs.weekOversightId
+    }
+}
+
+// MARK: - Preview Support
+extension DayOversight {
+    static var preview: DayOversight {
+        DayOversight(
+            id: UUID(),
+            date: Date(),
+            trucks: [.preview],
+            clientGroupId: UUID(),
+            weekOversightId: UUID()
+        )
     }
 } 

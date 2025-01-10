@@ -32,6 +32,7 @@ struct StatCard: View {
 }
 
 #Preview {
-    StatCard(title: "Test", value: 42, icon: "star.fill")
-        .withPreviewEnvironment()
+    PreviewContainer {
+        StatCard(title: "Test", value: 42, icon: "star.fill")
+    }
 } 

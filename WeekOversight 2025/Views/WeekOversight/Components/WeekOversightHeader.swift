@@ -1,44 +1,48 @@
 import SwiftUI
 
-private struct StatView: View {
+private struct WeekOversightStatView: View {
+    let title: String
     let value: Int
-    let label: String
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\(value)")
-                .font(.headline)
-            Text(label)
+        VStack(alignment: .leading) {
+            Text(title)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+            
+            Text("\(value)")
+                .font(.title2)
+                .fontWeight(.semibold)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
 struct WeekOversightHeader: View {
     let oversight: WeekOversight
-    @EnvironmentObject private var clientManager: ClientManager
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Week \(oversight.weekNumber)")
-                .font(.title2)
-                .fontWeight(.bold)
-            
-            if let group = clientManager.clientGroups.first(where: { $0.id == oversight.clientGroupId }) {
-                Text(group.name)
+        VStack(spacing: 16) {
+            HStack {
+                Text("Week \(oversight.weekNumber)")
+                    .font(.title)
+                    .fontWeight(.semibold)
+                
+                Spacer()
+                
+                Text(oversight.date.formatted(date: .abbreviated, time: .omitted))
                     .foregroundStyle(.secondary)
             }
             
-            HStack(spacing: 24) {
-                StatView(value: oversight.dayOversights.count, label: "Days")
-                StatView(value: oversight.totalTrucks, label: "Trucks")
-                StatView(value: oversight.totalBoxes, label: "Boxes")
-                StatView(value: oversight.totalRollies, label: "Rollies")
+            HStack {
+                WeekOversightStatView(title: "Days", value: oversight.dayOversights.count)
+                WeekOversightStatView(title: "Total Trucks", value: oversight.totalTrucks)
+                WeekOversightStatView(title: "Total Boxes", value: oversight.totalBoxes)
+                WeekOversightStatView(title: "Total Rollies", value: oversight.totalRollies)
             }
-            .padding(.top, 8)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .background(.background)
     }
 }
 

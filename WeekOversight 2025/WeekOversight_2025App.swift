@@ -19,7 +19,12 @@ struct WeekOversight_2025App: App {
                 .environmentObject(appState.clientManager)
                 .environmentObject(appState.errorHandler)
                 .environmentObject(appState.stateRestorationManager)
+                .environment(\.managedObjectContext, PersistenceController.shared.container.viewContext)
                 .preferredColorScheme(.light)
+                .animation(.easeInOut, value: appState.navigationManager.currentDestination)
+                .animation(.easeInOut, value: appState.navigationManager.activeSheet)
         }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
     }
 }

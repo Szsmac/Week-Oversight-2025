@@ -1,43 +1,39 @@
 import SwiftUI
 
 struct ValidatedTextField: View {
-    let title: String
     @Binding var text: String
+    let title: String
     let placeholder: String
-    let validation: (String) throws -> Void
+    let validation: (String) -> Bool
     
     @State private var isValid = true
-    @State private var errorMessage = ""
     
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            
-            TextField(placeholder, text: $text)
+            TextField(title, text: $text, prompt: Text(placeholder))
                 .textFieldStyle(.roundedBorder)
-                .onChange(of: text) { _, newValue in
-                    validateInput(newValue)
+                .onChange(of: text) { newValue in
+                    withAnimation {
+                        isValid = validation(newValue)
+                    }
                 }
             
             if !isValid {
-                Text(errorMessage)
+                Text("Please enter a valid \(title.lowercased())")
                     .font(.caption)
                     .foregroundStyle(.red)
             }
         }
-        .animation(.easeInOut, value: isValid)
     }
-    
-    private func validateInput(_ value: String) {
-        do {
-            try validation(value)
-            isValid = true
-            errorMessage = ""
-        } catch {
-            isValid = false
-            errorMessage = error.localizedDescription
-        }
+}
+
+#Preview {
+    Form {
+        ValidatedTextField(
+            text: .constant(""),
+            title: "Name",
+            placeholder: "Enter name",
+            validation: { !$0.isEmpty }
+        )
     }
 } 

@@ -38,8 +38,8 @@ final class ExcelImporter {
     private struct ExcelColumns {
         static let boxes = ColumnReference("F")!
         static let rollies = ColumnReference("G")!
-        static let mancos = ColumnReference("K")!
         static let distributionCenter = ColumnReference("A")!
+        static let mancos = ColumnReference("K")!
     }
     
     private var debugLog = ""
@@ -72,78 +72,44 @@ final class ExcelImporter {
     }
     
     func importExcelFile(from url: URL) async throws -> [TruckData] {
-        log("\n🔍 STEP 1: File Access")
-        log("Attempting to access: \(url.path)")
-        
-        guard url.startAccessingSecurityScopedResource() else {
-            throw ExcelImportError.fileAccessDenied
-        }
-        defer { url.stopAccessingSecurityScopedResource() }
-        
-        log("\n🔍 STEP 2: Reading File Data")
-        let data = try Data(contentsOf: url)
-        log("✅ Read \(data.count) bytes")
-        
-        log("\n🔍 STEP 3: Parsing Excel")
-        let file = try XLSXFile(data: data)
-        log("✅ Successfully parsed Excel file")
-        
-        log("\n🔍 STEP 4: Finding Worksheets")
-        let worksheets = try file.parseWorksheetPaths()
-        log("Found \(worksheets.count) worksheets (in order):")
-        worksheets.forEach { log("- \($0)") }
-        
-        log("\n🔍 STEP 5: Processing Worksheets")
         var trucks: [TruckData] = []
-        var mancosValue = 0
         
-        for path in worksheets {
-            if let worksheet = try? file.parseWorksheet(at: path) {
-                let sheetType = identifySheet(worksheet, path: path)
-                log("Sheet '\(path)' identified as: \(sheetType)")
-                
-                switch sheetType {
-                case .trucks:
-                    if let truck = try parseTruckData(from: worksheet) {
-                        trucks.append(truck)
-                        log("✅ Added truck for \(truck.distributionCenter)")
-                    }
+        do {
+            guard let file = try? XLSXFile(filepath: url.path) else {
+                throw ExcelImportError.invalidFileFormat
+            }
+            
+            let worksheets = try file.parseWorksheetPaths()
+            
+            for path in sortSheetPaths(worksheets) {
+                if let worksheet = try? file.parseWorksheet(at: path) {
+                    let sheetType = identifySheet(worksheet, path: path)
                     
-                case .clients:
-                    if let value = try? extractMancosValue(from: worksheet) {
-                        mancosValue = value
-                        log("📊 Found mancos value: \(mancosValue)")
-                    } else {
-                        mancosValue = 0
-                        log("⚠️ Could not extract mancos value, defaulting to 0")
+                    if sheetType == .trucks {
+                        if let truck = try parseTruckData(from: worksheet) {
+                            trucks.append(truck)
+                        }
                     }
-                    
-                case .unknown:
-                    log("⚠️ Skipping unknown sheet type")
                 }
             }
-        }
-        
-        if trucks.isEmpty {
-            log("❌ No truck data found in any sheet")
+            
+            if trucks.isEmpty {
+                #if DEBUG
+                log("\n❌ No trucks found in any sheet")
+                #endif
+                throw ExcelImportError.missingData("No valid truck data sheet found")
+            }
+            
+            log("\n✅ FINAL RESULTS:")
+            log("- Found \(trucks.count) trucks")
+            
+            return trucks
+        } catch {
             #if DEBUG
-            await showAlert(title: "Debug Info", message: debugLog)
+            log("\n❌ Error importing Excel file: \(error)")
             #endif
-            throw ExcelImportError.missingData("No valid truck data sheet found")
+            throw error
         }
-        
-        log("\n✅ FINAL RESULTS:")
-        log("- Found \(trucks.count) trucks")
-        log("- Mancos value: \(mancosValue)")
-        
-        // Update all trucks with the mancos value
-        trucks = trucks.map { truck in
-            var updatedTruck = truck
-            updatedTruck.missingBoxes = mancosValue
-            return updatedTruck
-        }
-        
-        return trucks
     }
     
     private func identifySheet(_ worksheet: Worksheet, path: String) -> ExcelSheetType {
@@ -190,9 +156,9 @@ final class ExcelImporter {
         // Create truck data
         let truck = TruckData(
             distributionCenter: distributionCenter,
-            arrival: Date(),
             boxes: boxes,
-            rollies: rollies
+            rollies: rollies,
+            arrivalTime: Date()
         )
         
         log("\n✅ Successfully parsed truck data:")
@@ -270,22 +236,10 @@ final class ExcelImporter {
     
     private func createTruck(distributionCenter: String, arrival: Date, boxes: Int, rollies: Int) -> TruckData {
         TruckData(
-            id: UUID(),
             distributionCenter: distributionCenter,
-            arrival: arrival,
             boxes: boxes,
-            rollies: rollies
-        )
-    }
-    
-    private func updateTruckWithMancos(_ truck: TruckData, mancosValue: Int) -> TruckData {
-        TruckData(
-            id: truck.id,
-            distributionCenter: truck.distributionCenter,
-            arrival: truck.arrival,
-            boxes: truck.boxes,
-            rollies: truck.rollies,
-            missingBoxes: mancosValue
+            rollies: rollies,
+            arrivalTime: arrival
         )
     }
     
@@ -300,23 +254,17 @@ final class ExcelImporter {
         
         return TruckData(
             distributionCenter: distributionCenter,
-            arrival: Date(),
             boxes: boxes,
-            rollies: rollies
+            rollies: rollies,
+            arrivalTime: Date()
         )
     }
     
     private func extractBoxCount(from worksheet: Worksheet) throws -> Int {
-        log("Extracting box count from column F...")
-        let value = try extractLastNumericValue(from: worksheet, column: ExcelColumns.boxes)
-        log("Found box count: \(value)")
-        return value
+        try extractLastNumericValue(from: worksheet, column: ExcelColumns.boxes)
     }
     
     private func extractRolliesCount(from worksheet: Worksheet) throws -> Int {
-        log("Extracting rollies count from column G...")
-        let value = try extractLastNumericValue(from: worksheet, column: ExcelColumns.rollies)
-        log("Found rollies count: \(value)")
-        return value
+        try extractLastNumericValue(from: worksheet, column: ExcelColumns.rollies)
     }
 } 

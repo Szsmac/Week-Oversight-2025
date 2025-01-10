@@ -1,132 +1,110 @@
 import SwiftUI
-import UniformTypeIdentifiers
-
-extension UTType {
-    static var excel: UTType {
-        UTType(tag: "xlsx",
-               tagClass: .filenameExtension,
-               conformingTo: .spreadsheet)!
-    }
-    
-    static var xlsm: UTType {
-        UTType(tag: "xlsm",
-               tagClass: .filenameExtension,
-               conformingTo: .spreadsheet)!
-    }
-}
 
 struct WeekOversightView: View {
-    let oversight: WeekOversight
+    @StateObject private var viewModel: WeekOversightViewModel
     @EnvironmentObject private var navigationManager: NavigationManager
-    @EnvironmentObject private var clientManager: ClientManager
+    
+    init(weekOversight: WeekOversightEntity) {
+        _viewModel = StateObject(wrappedValue: WeekOversightViewModel(
+            context: PersistenceController.shared.container.viewContext,
+            weekOversight: weekOversight
+        ))
+    }
+    
+    var body: some View {
+        WeekOversightContent(viewModel: viewModel)
+    }
+}
+
+private struct WeekOversightContent: View {
+    @ObservedObject var viewModel: WeekOversightViewModel
+    @EnvironmentObject private var navigationManager: NavigationManager
     @EnvironmentObject private var errorHandler: ErrorHandler
-    @State private var selectedDay: Date?
+    @State private var selectedDate: Date?
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
-            WeekOversightHeader(oversight: oversight)
-                .padding()
-            
-            // Calendar
-            WeekCalendarView(
-                selectedDate: $selectedDay,
-                weekOversight: oversight
-            )
-            .padding(.horizontal)
-            
-            // Day Oversights
-            ScrollView {
-                LazyVGrid(
-                    columns: [GridItem(.adaptive(minimum: 300, maximum: 400))],
-                    spacing: 20
-                ) {
-                    ForEach(oversight.dayOversights.sorted(by: { $0.date < $1.date })) { day in
-                        DayOversightFrame(dayOversight: day)
-                            .transition(.move(edge: .leading).combined(with: .opacity))
-                    }
-                }
-                .padding()
+        Group {
+            if viewModel.isLoading {
+                LoadingView()
+            } else {
+                mainContent
             }
         }
-        .toolbar {
-            ToolbarItem(placement: .navigation) {
-                Button(action: { navigationManager.goBack() }) {
-                    Image(systemName: "chevron.left")
-                }
-            }
-            
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    navigationManager.showSheet(.importExcel)
-                } label: {
-                    Label("Import Excel", systemImage: "square.and.arrow.down")
-                }
-                .buttonStyle(.hessing)
+        .navigationTitle("Week \(viewModel.weekNumber)")
+        .toolbar { toolbarContent }
+        .task {
+            for await error in viewModel.$error.values where error != nil {
+                errorHandler.handle(error!)
             }
         }
-        .sheet(item: $navigationManager.sheet) { sheet in
-            switch sheet {
-            case .importExcel:
-                ImportExcelView(
-                    urls: [],
-                    onComplete: { newOversight in
-                        Task {
-                            try? await clientManager.updateWeekOversight(newOversight)
-                            navigationManager.dismissSheet()
+    }
+    
+    private var mainContent: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                WeekCalendarView(selectedDate: $selectedDate, weekOversight: viewModel.weekOversight)
+                    .padding(.horizontal)
+                
+                if let selectedDate = selectedDate,
+                   let dayOversight = viewModel.dayOversight(for: selectedDate) {
+                    DayOversightCard(dayOversight: dayOversight)
+                        .onTapGesture {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.3)) {
+                                navigationManager.navigate(to: .dayOversight(dayOversight))
+                            }
                         }
-                    },
-                    currentOversight: oversight
-                )
-            default:
-                EmptyView()
+                }
+            }
+            .padding(.vertical)
+        }
+    }
+    
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItemGroup(placement: .primaryAction) {
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.3)) {
+                    navigationManager.showSheet(.addDay(viewModel.weekOversight))
+                }
+            } label: {
+                Label("Add Day", systemImage: "plus")
             }
         }
-        .animation(.spring(), value: oversight.dayOversights)
     }
 }
 
-// MARK: - Supporting Views
-private struct StatView: View {
-    let value: Int
-    let label: String
-    
-    var body: some View {
-        VStack(spacing: 4) {
-            Text("\(value)")
-                .font(.system(.title3, design: .rounded))
-                .fontWeight(.medium)
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-}
-
-struct DayOversightRow: View {
+private struct DayOversightCard: View {
     let dayOversight: DayOversight
     
     var body: some View {
-        HStack {
-            VStack(alignment: .leading) {
-                Text(dayOversight.date.formatted(date: .abbreviated, time: .omitted))
-                    .font(.headline)
-                Text("\(dayOversight.trucks.count) trucks")
+        VStack(alignment: .leading, spacing: 12) {
+            Text(dayOversight.date.formatted(date: .abbreviated, time: .omitted))
+                .font(.headline)
+            
+            if dayOversight.trucks.isEmpty {
+                Text("No trucks")
                     .foregroundStyle(.secondary)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(dayOversight.trucks) { truck in
+                        TruckRow(truck: truck)
+                    }
+                }
             }
-            
-            Spacer()
-            
-            Image(systemName: "chevron.right")
-                .foregroundStyle(.secondary)
         }
         .padding()
-        .background(Color(nsColor: .controlBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(.background)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .shadow(radius: 2)
     }
 }
 
 #Preview {
-    WeekOversightView(oversight: .preview)
-        .withPreviewEnvironment()
+    let context = PersistenceController.preview.container.viewContext
+    let group = PreviewData.createPreviewClientGroup(in: context)
+    let weekOversight = (group.weekOversights?.allObjects as? [WeekOversightEntity])?.first ?? WeekOversightEntity(context: context)
+    
+    return NavigationStack {
+        WeekOversightView(weekOversight: weekOversight)
+            .withPreviewEnvironment()
+    }
 } 

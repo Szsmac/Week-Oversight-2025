@@ -18,9 +18,9 @@ struct AddDistributionCenterSheet: View {
             Button("Add") {
                 let newTruck = TruckData(
                     distributionCenter: centerName,
-                    arrival: arrivalTime,
                     boxes: boxes,
-                    rollies: rollies
+                    rollies: rollies,
+                    arrivalTime: arrivalTime
                 )
                 onAdd(newTruck)
             }

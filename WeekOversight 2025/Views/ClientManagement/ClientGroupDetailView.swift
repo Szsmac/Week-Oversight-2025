@@ -1,81 +1,112 @@
 import SwiftUI
+import CoreData
 
 struct ClientGroupDetailView: View {
-    let group: ClientGroup
-    @EnvironmentObject private var clientManager: ClientManager
+    @StateObject private var viewModel: ClientGroupViewModel
     @EnvironmentObject private var navigationManager: NavigationManager
-    @State private var selectedOversight: WeekOversight?
-    @State private var isLoading = false
+    @EnvironmentObject private var errorHandler: ErrorHandler
+    
+    init(clientGroup: ClientGroupEntity, context: NSManagedObjectContext) {
+        _viewModel = StateObject(wrappedValue: ClientGroupViewModel(context: context, clientGroup: clientGroup))
+    }
+    
+    var body: some View {
+        ClientGroupContent(viewModel: viewModel)
+    }
+}
+
+private struct ClientGroupContent: View {
+    @ObservedObject var viewModel: ClientGroupViewModel
+    @EnvironmentObject private var navigationManager: NavigationManager
+    @EnvironmentObject private var errorHandler: ErrorHandler
+    @State private var showError = false
     
     var body: some View {
         Group {
-            if isLoading {
-                LoadingView(message: "Loading oversights...")
+            if viewModel.isLoading {
+                LoadingView()
             } else {
-                content
+                WeekOversightList(weekOversights: viewModel.weekOversights)
             }
         }
+        .navigationTitle("Week Oversights")
         .toolbar {
-            ToolbarItem {
-                Menu {
-                    Button("New Week Oversight") {
-                        withAnimation(AppAnimation.standard) {
-                            navigationManager.showSheet(.createClientOversight(group))
-                        }
-                    }
-                    
-                    Button("Import Excel") {
-                        withAnimation(AppAnimation.standard) {
-                            navigationManager.showSheet(.importExcel)
-                        }
-                    }
-                    
-                    Divider()
-                    
-                    Button("Delete Group", role: .destructive) {
-                        withAnimation(AppAnimation.standard) {
-                            navigationManager.showSheet(.deleteClientGroup(group))
-                        }
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                }
+            ToolbarItemGroup(placement: .primaryAction) {
+                ImportExcelButton()
+                AddWeekButton()
             }
         }
-        .navigationTitle(group.name)
+        .task {
+            for await error in viewModel.$error.values where error != nil {
+                errorHandler.handle(error!)
+            }
+        }
     }
+}
+
+private struct WeekOversightList: View {
+    let weekOversights: [WeekOversightEntity]
+    @EnvironmentObject private var navigationManager: NavigationManager
     
-    private var content: some View {
+    var body: some View {
         List {
-            Section {
-                ForEach(group.weekOversights) { oversight in
-                    WeekOversightRow(oversight: oversight)
-                        .contentTransition(.symbolEffect(.automatic))
-                        .onTapGesture {
-                            withAnimation(AppAnimation.standard) {
-                                navigationManager.navigate(to: .weekOversight(oversight))
-                            }
-                        }
-                }
-            } header: {
-                SectionHeader(
-                    title: "Week Oversights",
-                    systemImage: "calendar",
-                    action: {
-                        withAnimation(AppAnimation.standard) {
-                            navigationManager.showSheet(.createClientOversight(group))
+            ForEach(weekOversights) { oversight in
+                WeekOversightRow(weekOversight: oversight)
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.3)) {
+                            navigationManager.navigate(to: .weekOversight(oversight))
                         }
                     }
+            }
+        }
+        .overlay {
+            if weekOversights.isEmpty {
+                ContentUnavailableView(
+                    "No Week Oversights",
+                    systemImage: "calendar.badge.exclamationmark",
+                    description: Text("Add a week oversight to get started")
                 )
             }
         }
-        .animation(AppAnimation.standard, value: group.weekOversights)
+    }
+}
+
+private struct ImportExcelButton: View {
+    @EnvironmentObject private var navigationManager: NavigationManager
+    let group: ClientGroupEntity
+    
+    var body: some View {
+        Button {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.3)) {
+                navigationManager.showSheet(.importExcel(group))
+            }
+        } label: {
+            Label("Import Excel", systemImage: "square.and.arrow.down")
+        }
+    }
+}
+
+private struct AddWeekButton: View {
+    @EnvironmentObject private var navigationManager: NavigationManager
+    let group: ClientGroupEntity
+    
+    var body: some View {
+        Button {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85, blendDuration: 0.3)) {
+                navigationManager.showSheet(.createOversight(group))
+            }
+        } label: {
+            Label("Add Week", systemImage: "plus")
+        }
     }
 }
 
 #Preview {
-    NavigationStack {
-        ClientGroupDetailView(group: ClientGroup(name: "Test Group"))
+    let context = PersistenceController.preview.container.viewContext
+    let group = PreviewData.createPreviewClientGroup(in: context)
+    
+    return NavigationStack {
+        ClientGroupDetailView(clientGroup: group, context: context)
             .withPreviewEnvironment()
     }
 } 

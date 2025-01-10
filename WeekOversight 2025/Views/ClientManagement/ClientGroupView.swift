@@ -19,7 +19,7 @@ struct ClientGroupView: View {
                     Button {
                         navigationManager.navigate(to: .weekOversight(oversight))
                     } label: {
-                        WeekOversightRow(oversight: oversight)
+                        WeekOversightRow(weekOversight: oversight)
                     }
                     .buttonStyle(.plain)
                 }

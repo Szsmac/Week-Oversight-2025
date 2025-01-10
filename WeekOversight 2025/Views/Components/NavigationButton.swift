@@ -1,22 +1,26 @@
 import SwiftUI
 
-struct NavigationButton<Label: View>: View {
+struct NavigationButton: View {
+    let title: String
+    let systemImage: String
     let action: () -> Void
-    let label: () -> Label
-    
-    init(action: @escaping () -> Void, @ViewBuilder label: @escaping () -> Label) {
-        self.action = action
-        self.label = label
-    }
     
     var body: some View {
-        Button(action: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                action()
+        Button(action: action) {
+            VStack(spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.title)
+                    .symbolEffect(.bounce, value: title)
+                Text(title)
+                    .font(.callout)
+                    .fontWeight(.medium)
             }
-        }) {
-            label()
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
         }
-        .buttonStyle(.hessing)
+        .buttonStyle(.plain)
+        .contentTransition(.opacity)
     }
 } 

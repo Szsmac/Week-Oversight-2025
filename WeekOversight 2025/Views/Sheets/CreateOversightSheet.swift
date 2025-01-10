@@ -1,19 +1,18 @@
 import SwiftUI
 
 struct CreateOversightSheet: View {
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var navigationManager: NavigationManager
     @EnvironmentObject private var clientManager: ClientManager
     @EnvironmentObject private var errorHandler: ErrorHandler
     
-    let group: ClientGroup?
-    let onComplete: (WeekOversight) -> Void
+    let group: ClientGroupEntity?
     
-    init(group: ClientGroup? = nil, onComplete: @escaping (WeekOversight) -> Void) {
+    init(group: ClientGroupEntity? = nil) {
         self.group = group
-        self.onComplete = onComplete
     }
     
-    @State private var selectedGroup: ClientGroup?
+    @State private var selectedGroup: ClientGroupEntity?
     @State private var weekNumber = 1
     @State private var isCreating = false
     
@@ -26,9 +25,9 @@ struct CreateOversightSheet: View {
             if group == nil {
                 // Show picker only when no group is pre-selected
                 Picker("Client", selection: $selectedGroup) {
-                    Text("Select Client").tag(nil as ClientGroup?)
+                    Text("Select Client").tag(nil as ClientGroupEntity?)
                     ForEach(clientManager.clientGroups) { group in
-                        Text(group.name).tag(Optional(group))
+                        Text(group.name ?? "Unnamed Group").tag(Optional(group))
                     }
                 }
             }
@@ -37,7 +36,7 @@ struct CreateOversightSheet: View {
             
             HStack {
                 Button("Cancel") {
-                    navigationManager.dismissSheet()
+                    dismiss()
                 }
                 .keyboardShortcut(.escape)
                 
@@ -45,7 +44,6 @@ struct CreateOversightSheet: View {
                     createOversight()
                 }
                 .keyboardShortcut(.return)
-                .buttonStyle(.hessing)
                 .disabled((selectedGroup == nil && group == nil) || isCreating)
             }
         }
@@ -61,18 +59,28 @@ struct CreateOversightSheet: View {
         guard let selectedGroup = group ?? selectedGroup else { return }
         
         isCreating = true
-        let oversight = WeekOversight(
-            id: UUID(),
-            weekNumber: weekNumber,
-            clientGroupId: selectedGroup.id,
-            dayOversights: []
-        )
         
         Task {
             do {
-                try await clientManager.updateWeekOversight(oversight)
-                onComplete(oversight)
-                navigationManager.dismissSheet()
+                let context = selectedGroup.managedObjectContext!
+                let entity = WeekOversightEntity(context: context)
+                entity.id = UUID()
+                entity.weekNumber = Int32(weekNumber)
+                entity.clientGroup = selectedGroup
+                
+                // Create day oversights for the week
+                let calendar = Calendar.current
+                let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date()))!
+                
+                for dayOffset in 0..<7 {
+                    let dayEntity = DayOversightEntity(context: context)
+                    dayEntity.id = UUID()
+                    dayEntity.date = calendar.date(byAdding: .day, value: dayOffset, to: startOfWeek)
+                    dayEntity.weekOversight = entity
+                }
+                
+                try context.save()
+                dismiss()
             } catch {
                 errorHandler.handle(error)
             }

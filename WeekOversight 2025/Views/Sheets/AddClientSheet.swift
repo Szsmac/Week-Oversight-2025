@@ -1,55 +1,56 @@
 import SwiftUI
 
 struct AddClientSheet: View {
-    @EnvironmentObject private var navigationManager: NavigationManager
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var clientManager: ClientManager
     @EnvironmentObject private var errorHandler: ErrorHandler
+    
     @State private var name = ""
-    @State private var isAdding = false
+    @State private var isLoading = false
     
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Add Client")
-                .font(.title2)
-                .fontWeight(.bold)
-            
+        Form {
             TextField("Client Name", text: $name)
-                .textFieldStyle(.roundedBorder)
-            
-            HStack {
+        }
+        .formStyle(.grouped)
+        .frame(minWidth: 300, minHeight: 150)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") {
-                    navigationManager.dismissSheet()
+                    dismiss()
                 }
-                .keyboardShortcut(.escape)
-                
+            }
+            
+            ToolbarItem(placement: .confirmationAction) {
                 Button("Add") {
-                    addClient()
+                    Task { await addClient() }
                 }
-                .keyboardShortcut(.return)
-                .buttonStyle(.hessing)
-                .disabled(name.isEmpty || isAdding)
+                .disabled(name.isEmpty || isLoading)
             }
         }
-        .padding()
-        .frame(width: 300)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .disabled(isLoading)
+        .overlay {
+            if isLoading {
+                LoadingView()
+            }
+        }
     }
     
-    private func addClient() {
-        isAdding = true
-        Task {
-            do {
-                try await clientManager.addClientGroup(ClientGroup(name: name))
-                navigationManager.dismissSheet()
-            } catch {
-                errorHandler.handle(error)
-            }
-            isAdding = false
+    private func addClient() async {
+        isLoading = true
+        defer { isLoading = false }
+        
+        do {
+            try await clientManager.createClientGroup(name: name)
+            dismiss()
+        } catch {
+            errorHandler.handle(error)
         }
     }
 }
 
 #Preview {
     AddClientSheet()
-        .withPreviewEnvironment()
+        .environmentObject(ClientManager.preview)
+        .environmentObject(ErrorHandler())
 } 

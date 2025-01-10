@@ -1,116 +1,136 @@
 import Foundation
-import SwiftUI
+import CoreData
 
 @MainActor
-final class ClientManager: ObservableObject {
+class ClientManager: ObservableObject {
+    @Published private(set) var clientGroups: [ClientGroup] = []
     @Published var selectedClientGroup: ClientGroup?
-    @Published var clientGroups: [ClientGroup] = []
-    @Published private(set) var isLoading = false
-    @Published private(set) var error: Error?
+    private let context: NSManagedObjectContext
     
-    private let persistenceManager: PersistenceManager
-    private let stateRestorationManager: StateRestorationManager
-    private let navigationManager: NavigationManager
-    private let errorHandler: ErrorHandler
-    
-    init(
-        persistenceManager: PersistenceManager,
-        stateRestorationManager: StateRestorationManager,
-        navigationManager: NavigationManager,
-        errorHandler: ErrorHandler
-    ) {
-        self.persistenceManager = persistenceManager
-        self.stateRestorationManager = stateRestorationManager
-        self.navigationManager = navigationManager
-        self.errorHandler = errorHandler
+    init(context: NSManagedObjectContext = PersistenceController.shared.container.viewContext) {
+        self.context = context
+        loadClientGroups()
     }
     
-    func loadClientGroups() async throws {
-        isLoading = true
-        defer { isLoading = false }
+    func selectClientGroup(_ group: ClientGroup) {
+        selectedClientGroup = group
+    }
+    
+    func deselectClientGroup() {
+        selectedClientGroup = nil
+    }
+    
+    private func loadClientGroups() {
+        let request = NSFetchRequest<ClientGroupEntity>(entityName: "ClientGroupEntity")
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \ClientGroupEntity.name, ascending: true)]
         
         do {
-            let groups: [ClientGroup] = try await persistenceManager.load(filename: "clientGroups")
-            withAnimation(AppAnimation.standard) {
-                clientGroups = groups
+            let entities = try context.fetch(request)
+            clientGroups = entities.compactMap { entity in
+                guard let id = entity.id,
+                      let name = entity.name else { return nil }
+                
+                let weekOversights = (entity.weekOversights?.allObjects as? [WeekOversightEntity])?.compactMap { weekEntity -> WeekOversight? in
+                    guard let weekId = weekEntity.id else { return nil }
+                    
+                    let dayOversights = (weekEntity.dayOversights?.allObjects as? [DayOversightEntity])?.compactMap { dayEntity -> DayOversight? in
+                        guard let dayId = dayEntity.id,
+                              let date = dayEntity.date else { return nil }
+                        
+                        let trucks = (dayEntity.trucks?.allObjects as? [TruckEntity])?.compactMap { truckEntity -> TruckData? in
+                            guard let truckId = truckEntity.id,
+                                  let distributionCenter = truckEntity.distributionCenter,
+                                  let arrivalTime = truckEntity.arrivalTime else { return nil }
+                            
+                            return TruckData(
+                                id: truckId,
+                                distributionCenter: distributionCenter,
+                                boxes: Int(truckEntity.boxes),
+                                rollies: Int(truckEntity.rollies),
+                                arrivalTime: arrivalTime
+                            )
+                        } ?? []
+                        
+                        return DayOversight(
+                            id: dayId,
+                            date: date,
+                            trucks: trucks,
+                            clientGroupId: id,
+                            weekOversightId: weekId
+                        )
+                    } ?? []
+                    
+                    return WeekOversight(
+                        id: weekId,
+                        weekNumber: Int(weekEntity.weekNumber),
+                        clientGroupId: id,
+                        dayOversights: dayOversights
+                    )
+                } ?? []
+                
+                return ClientGroup(
+                    id: id,
+                    name: name,
+                    weekOversights: weekOversights
+                )
             }
         } catch {
-            errorHandler.handle(error)
-            throw error
+            print("Error loading client groups: \(error)")
         }
     }
     
-    func addClientGroup(_ group: ClientGroup) async throws {
-        clientGroups.append(group)
-        try await saveClientGroups()
-    }
-    
-    func updateClientGroup(_ group: ClientGroup) async throws {
-        guard let index = clientGroups.firstIndex(where: { $0.id == group.id }) else {
-            return
-        }
+    func createClientGroup(name: String) async throws -> ClientGroup {
+        let entity = ClientGroupEntity(context: context)
+        entity.id = UUID()
+        entity.name = name
+        entity.weekOversights = NSSet()
         
-        withAnimation(AppAnimation.standard) {
-            clientGroups[index] = group
-        }
+        try context.save()
+        loadClientGroups()
         
-        try await saveClientGroups()
-    }
-    
-    func deleteClientGroup(_ group: ClientGroup) async throws {
-        withAnimation(AppAnimation.standard) {
-            clientGroups.removeAll { $0.id == group.id }
-        }
-        
-        try await saveClientGroups()
-    }
-    
-    private func saveClientGroups() async throws {
-        try await persistenceManager.save(clientGroups, filename: "clientGroups")
-    }
-    
-    func createNewWeekOversight(for group: ClientGroup) -> WeekOversight {
-        let weekNumber = Calendar.current.component(.weekOfYear, from: Date())
-        let days = (1...7).map { dayNumber in
-            DayOversight(
-                id: UUID(),
-                date: Calendar.current.date(byAdding: .day, value: dayNumber - 1, to: Date()) ?? Date(),
-                trucks: [],
-                clientGroupId: group.id,
-                weekOversightId: UUID()
-            )
-        }
-        
-        return WeekOversight(
-            id: UUID(),
-            weekNumber: weekNumber,
-            clientGroupId: group.id,
-            dayOversights: days
+        return ClientGroup(
+            id: entity.id ?? UUID(),
+            name: entity.name ?? name,
+            weekOversights: []
         )
     }
     
-    func updateWeekOversight(_ oversight: WeekOversight) async throws {
-        guard let groupIndex = clientGroups.firstIndex(where: { $0.id == oversight.clientGroupId }),
-              let oversightIndex = clientGroups[groupIndex].weekOversights.firstIndex(where: { $0.id == oversight.id }) else {
-            return
-        }
+    func updateClientGroup(_ group: ClientGroup) async throws {
+        let request = NSFetchRequest<ClientGroupEntity>(entityName: "ClientGroupEntity")
+        request.predicate = NSPredicate(format: "id == %@", group.id as CVarArg)
         
-        withAnimation(AppAnimation.standard) {
-            clientGroups[groupIndex].weekOversights[oversightIndex] = oversight
+        if let entity = try context.fetch(request).first {
+            entity.name = group.name
+            try context.save()
+            loadClientGroups()
         }
-        
-        try await saveClientGroups()
     }
     
-    func importOversight(_ oversight: WeekOversight) async throws {
-        guard let groupIndex = clientGroups.firstIndex(where: { $0.id == oversight.clientGroupId }) else {
-            return
-        }
+    func deleteClientGroup(_ group: ClientGroup) async throws {
+        let request = NSFetchRequest<ClientGroupEntity>(entityName: "ClientGroupEntity")
+        request.predicate = NSPredicate(format: "id == %@", group.id as CVarArg)
         
-        withAnimation(AppAnimation.standard) {
-            clientGroups[groupIndex].weekOversights.append(oversight)
+        if let entity = try context.fetch(request).first {
+            context.delete(entity)
+            try context.save()
+            loadClientGroups()
         }
+    }
+    
+    func updateWeekOversight(_ oversight: WeekOversight) async throws {
+        let request = NSFetchRequest<WeekOversightEntity>(entityName: "WeekOversightEntity")
+        request.predicate = NSPredicate(format: "id == %@", oversight.id as CVarArg)
         
-        try await saveClientGroups()
+        if let entity = try context.fetch(request).first {
+            entity.weekNumber = Int32(oversight.weekNumber)
+            try context.save()
+            loadClientGroups()
+        }
+    }
+}
+
+extension ClientManager {
+    static var preview: ClientManager {
+        ClientManager(context: PersistenceController.preview.container.viewContext)
     }
 } 
